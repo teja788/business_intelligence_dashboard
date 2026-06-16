@@ -81,6 +81,11 @@ src/
   date-truncation, visual Join/Union builder, SQL Lab (run + save-as-dataset),
   "View SQL" / "View underlying rows" / "Edit as SQL", command palette (⌘/Ctrl-K)
   with a reserved "Ask a question…" AI seam, light/dark theme, vendor
-  code-splitting. _(Choropleth map plugin deferred — the `ChartRenderer` seam
-  makes it a drop-in; see brief §7B.)_
-- [ ] M6 — (Architected, built later) Backend / remote connectors / AI seam.
+  code-splitting. **Choropleth map plugin** (world-atlas topology, lazy-loaded;
+  try the "Sales by Country" sample).
+- [~] **M6 — Backend seam (architected; service built later).** `RemoteSQLSource`
+  implements the same `DataSource` interface over HTTP — flip via
+  `VITE_DATA_SOURCE=remote` + `VITE_REMOTE_URL`, no UI/chart changes. Pluggable
+  `QueryGenerator` "ask your data" AI seam (provider via `VITE_LLM_PROVIDER`),
+  and a typed `eventBus`. The Node service, connectors, accounts, share links,
+  and row-level permissions are the remaining build-later work.

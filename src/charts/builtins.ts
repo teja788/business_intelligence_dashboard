@@ -12,6 +12,7 @@ import { treemapChart } from './echarts/treemap';
 import { gaugeChart } from './echarts/gauge';
 import { scatterChart, bubbleChart } from './echarts/scatter';
 import { heatmapChart } from './echarts/heatmap';
+import { mapChart } from './echarts/map';
 import { kpiChart } from './react/kpi';
 import { tableChart } from './react/table';
 import { pivotChart } from './react/pivot';
@@ -34,6 +35,7 @@ export function registerBuiltinCharts(): void {
     scatterChart,
     bubbleChart,
     heatmapChart,
+    mapChart,
     kpiChart,
     tableChart,
     pivotChart,

@@ -6,6 +6,7 @@
  */
 import { create } from 'zustand';
 import type { Filter, Selection } from '@/model/types';
+import { eventBus } from '@/events/bus';
 
 type Scalar = string | number | boolean | null;
 
@@ -49,6 +50,7 @@ export const useSelectionStore = create<SelectionState>((set, get) => {
       history.push(clone(next));
       return { selection: next, history, index: history.length - 1 };
     });
+    eventBus.emit('selection:changed', { selection: next });
   };
 
   const withField = (

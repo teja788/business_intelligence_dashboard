@@ -15,6 +15,7 @@ import {
   getWorkbook,
 } from '@/persist/db';
 import { useDashboardStore } from './dashboardStore';
+import { eventBus } from '@/events/bus';
 
 export type AppMode = 'simple' | 'advanced';
 export type EngineStatus = 'booting' | 'ready' | 'error';
@@ -90,6 +91,7 @@ export const useAppStore = create<AppState>()(
         s.datasets.push(dataset);
         s.activeDatasetId = dataset.id;
       });
+      eventBus.emit('dataset:added', { dataset });
     },
 
     loadSample: async (index = 0) => {

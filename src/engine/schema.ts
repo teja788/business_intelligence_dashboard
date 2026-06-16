@@ -30,9 +30,16 @@ export interface RawColumn {
   duckType: string;
 }
 
+/** Heuristic: treat columns clearly naming countries as geographic. */
+function isGeoColumn(name: string, type: FieldType): boolean {
+  return type === 'string' && /^(country|countries|nation)$/i.test(name.trim());
+}
+
 export function buildFields(datasetId: string, columns: RawColumn[]): Field[] {
   return columns.map((c) => {
-    const type = duckTypeToFieldType(c.duckType);
+    const type = isGeoColumn(c.name, duckTypeToFieldType(c.duckType))
+      ? 'geo'
+      : duckTypeToFieldType(c.duckType);
     const role = defaultRole(type);
     return {
       id: `${datasetId}::${c.name}`,

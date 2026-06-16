@@ -1,0 +1,21 @@
+Country,Region,Sales,Customers,AvgOrder
+United States of America,Americas,1284500,4210,305.10
+Canada,Americas,342800,1180,290.50
+Mexico,Americas,198400,890,222.90
+Brazil,Americas,276300,1340,206.20
+United Kingdom,Europe,512700,1980,259.00
+Germany,Europe,634900,2410,263.40
+France,Europe,489200,1870,261.60
+Spain,Europe,231800,1010,229.50
+Italy,Europe,287600,1180,243.70
+Netherlands,Europe,198700,760,261.40
+China,Asia,978400,3920,249.60
+India,Asia,564200,2870,196.60
+Japan,Asia,612300,2050,298.70
+Australia,Oceania,254100,890,285.50
+South Korea,Asia,341900,1240,275.70
+Indonesia,Asia,187600,1090,172.10
+Saudi Arabia,Middle East,219400,640,342.80
+South Africa,Africa,142800,720,198.30
+Nigeria,Africa,98700,640,154.20
+Argentina,Americas,134500,710,189.40
