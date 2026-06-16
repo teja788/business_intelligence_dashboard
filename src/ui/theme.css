@@ -1,0 +1,53 @@
+/*
+ * Vantage theme tokens.
+ * Colors are RGB triples (space-separated) so Tailwind's <alpha-value> works.
+ * A future theme registry swaps these variables; components never hardcode hex.
+ */
+
+:root,
+.dark {
+  /* Deep near-black surfaces */
+  --v-bg-base: 9 9 12;
+  --v-bg-panel: 16 16 22;
+  --v-bg-elevated: 24 24 32;
+  --v-bg-inset: 13 13 18;
+
+  --v-border-subtle: 38 38 48;
+  --v-border-strong: 60 60 74;
+
+  --v-content-primary: 237 237 244;
+  --v-content-secondary: 165 165 182;
+  --v-content-muted: 110 110 128;
+
+  /* Electric accent + secondary */
+  --v-accent: 99 102 241; /* indigo/electric */
+  --v-accent-soft: 67 56 202;
+  --v-accent2: 34 211 238; /* cyan */
+
+  /* Associative selection states */
+  --v-assoc-selected: 52 211 153; /* green — actively selected */
+  --v-assoc-possible: 237 237 244; /* white — still reachable */
+  --v-assoc-excluded: 90 90 104; /* grey — excluded */
+}
+
+.light {
+  --v-bg-base: 248 248 251;
+  --v-bg-panel: 255 255 255;
+  --v-bg-elevated: 255 255 255;
+  --v-bg-inset: 241 241 245;
+
+  --v-border-subtle: 226 226 234;
+  --v-border-strong: 200 200 212;
+
+  --v-content-primary: 17 17 24;
+  --v-content-secondary: 71 71 86;
+  --v-content-muted: 130 130 146;
+
+  --v-accent: 79 70 229;
+  --v-accent-soft: 99 102 241;
+  --v-accent2: 8 145 178;
+
+  --v-assoc-selected: 16 185 129;
+  --v-assoc-possible: 17 17 24;
+  --v-assoc-excluded: 168 168 180;
+}

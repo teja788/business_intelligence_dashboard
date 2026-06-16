@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-ssr
+*.local
+.vite
+coverage
+*.tsbuildinfo
+
+# Editor / OS
+.DS_Store
+.idea
+*.log
+npm-debug.log*
