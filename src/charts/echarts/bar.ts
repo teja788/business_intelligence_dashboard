@@ -10,6 +10,7 @@ import {
   valueAxis,
 } from './theme';
 import { mountECharts } from './mount';
+import { buildMarkLine, parseRefLine } from './refline';
 
 export const barChart: ChartRenderer = {
   id: 'bar',
@@ -50,18 +51,30 @@ export const barChart: ChartRenderer = {
 
     const cat = categoryAxis(theme, data.x?.label, categories);
     const val = valueAxis(theme);
+
+    // Optional reference line, attached to the first series so it draws once.
+    const refOpt = parseRefLine(options);
+    const markLine = refOpt
+      ? buildMarkLine(
+          refOpt,
+          displaySeries.flatMap((s) => s.data),
+          horizontal,
+        )
+      : null;
+
     const option = {
       ...baseCartesianOption(theme),
       color: theme.palette,
       xAxis: horizontal ? val : cat,
       yAxis: horizontal ? cat : val,
-      series: displaySeries.map((s) => ({
+      series: displaySeries.map((s, i) => ({
         type: 'bar',
         name: s.name,
         data: s.data,
         stack: stacked ? 'total' : undefined,
         emphasis: { focus: 'series' },
         barMaxWidth: 48,
+        ...(i === 0 && markLine ? { markLine } : {}),
       })),
     };
 

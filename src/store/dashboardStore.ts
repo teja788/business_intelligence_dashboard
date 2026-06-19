@@ -14,6 +14,7 @@ interface DashboardState {
   selectedTileId?: string;
 
   addTile: (input: CreateTileInput) => string;
+  addTiles: (inputs: CreateTileInput[]) => void;
   updateTile: (id: string, patch: Partial<ChartTile>) => void;
   updateTileOptions: (id: string, options: Record<string, unknown>) => void;
   removeTile: (id: string) => void;
@@ -31,6 +32,8 @@ interface DashboardState {
   renameWorkbook: (name: string) => void;
   newWorkbook: () => void;
   loadWorkbook: (wb: Workbook) => void;
+  /** Replace the whole workbook and persist (used by undo/redo). */
+  replaceWorkbook: (wb: Workbook) => void;
   exportJSON: () => string;
   importJSON: (json: string) => void;
 }
@@ -54,6 +57,19 @@ export const useDashboardStore = create<DashboardState>()(
       });
       return tile.id;
     },
+
+    addTiles: (inputs) =>
+      set((s) => {
+        if (!inputs.length) return;
+        let last: string | undefined;
+        for (const input of inputs) {
+          const tile = createTile(input);
+          s.workbook.tiles.push(tile);
+          last = tile.id;
+        }
+        s.selectedTileId = last;
+        persist(s.workbook);
+      }),
 
     updateTile: (id, patch) =>
       set((s) => {
@@ -168,6 +184,13 @@ export const useDashboardStore = create<DashboardState>()(
       set((s) => {
         s.workbook = wb;
         s.selectedTileId = undefined;
+      }),
+
+    replaceWorkbook: (wb) =>
+      set((s) => {
+        s.workbook = JSON.parse(JSON.stringify(wb)) as Workbook;
+        s.selectedTileId = undefined;
+        persist(s.workbook);
       }),
 
     exportJSON: () => JSON.stringify(get().workbook, null, 2),

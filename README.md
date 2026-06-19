@@ -89,3 +89,47 @@ src/
   `QueryGenerator` "ask your data" AI seam (provider via `VITE_LLM_PROVIDER`),
   and a typed `eventBus`. The Node service, connectors, accounts, share links,
   and row-level permissions are the remaining build-later work.
+- [x] **M7 — Export, more sources, auto-build (10x usefulness, no AI).**
+  - **Export & sharing** (`src/export/`): per-tile PNG + CSV, full-dashboard PNG
+    and PDF, and a **self-contained HTML report** (charts embedded as data-URIs,
+    opens offline anywhere). All client-side via html-to-image + jsPDF; numbers
+    are computed in the engine at export time, never recomputed.
+  - **Data sources beyond file-drop** (`src/engine/remoteFile.ts`): import from a
+    **URL / paste a link** (CSV/Parquet/JSON/TSV/Excel, incl. published Google
+    Sheets & raw hosts), with one-click **refresh** that re-fetches and re-imports
+    under the same dataset id so tiles/field ids stay stable.
+  - **One-click auto-build** (`src/charts/autoDashboard.ts`): heuristic starter
+    dashboard from profiling — KPIs per measure, a time trend, and breakdown bars
+    for low-cardinality categories. Pure/unit-tested; no LLM.
+- [x] **M8 — Interaction depth.**
+  - **Reference lines** (`src/charts/echarts/refline.ts`): average / median / min /
+    max / fixed-value annotation lines on bar/line/area, via ECharts `markLine`.
+  - **Dashboard filter-control tiles** (`FilterControlTile`): a first-class
+    on-canvas filter (`+ Filter`) that embeds the associative `FilterList`, so it
+    writes the SAME global selection as click-to-cross-filter — every tile reacts.
+  - **Drill-down hierarchies** (`src/charts/drill.ts` + `drillStore`): define an
+    ordered dimension hierarchy on a tile; clicking a mark descends a level
+    (ancestor value pinned as a filter, re-grouped by the next field) with a
+    breadcrumb to climb back. Drill state is ephemeral (not persisted).
+- [x] **M9 — Formatting & history.**
+  - **Conditional formatting** (`src/charts/format.ts`): threshold colour rules
+    (>, ≥, <, ≤, =, between) for KPI values and table measure cells, edited per
+    tile. Pure evaluator; `DataTable` gained an optional `cellStyle` hook.
+  - **Undo / redo** (`historyReducer.ts` + `dashboardHistory.ts`): full workbook
+    undo/redo with ⌘Z / ⌘⇧Z and toolbar buttons, via a pure history reducer and
+    an isolated store subscription (no changes to existing store actions).
+- [x] **M10 — Performance, formats, embed.**
+  - **Query result cache** (`src/engine/queryCache.ts`): an LRU keyed by exact
+    SQL so the many tiles sharing a query (and re-renders) skip redundant DuckDB
+    round-trips; cleared whenever the dataset registry changes (so refresh shows
+    new data). Filters/params change the SQL text, so they key distinctly.
+  - **Number-format presets** (`src/charts/valueFormat.ts`): plain / currency /
+    percent / compact (with decimals & currency code) for KPI values and table
+    measure cells. Pure/Intl-based.
+  - **Embed mode** (`src/ui/embed.ts` + `EmbedView`): load with `?embed` for a
+    read-only, chrome-free dashboard (interactive cross-filtering kept) suitable
+    for iframes; "Copy embed link" in the Export menu.
+  - *Deferred by design:* OPFS-backed DuckDB persistence (engine-level change,
+    needs real-browser verification — the app already survives reloads via the
+    IndexedDB byte-store rebuild), and live palette themes / small-multiples
+    (need a chart-remount path; low leverage).

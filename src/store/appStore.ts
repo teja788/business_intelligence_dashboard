@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { Dataset } from '@/model/types';
 import { getDataSource } from '@/engine/source';
+import { fetchUrlAsFile } from '@/engine/remoteFile';
 import { SAMPLE_DATASETS } from '@/samples';
 import {
   saveDataset,
@@ -35,6 +36,8 @@ interface AppState {
   /** Boot the engine, restore persisted datasets + workbook. */
   initEngine: () => Promise<void>;
   importFile: (file: File) => Promise<void>;
+  importFromUrl: (url: string, name?: string) => Promise<void>;
+  refreshDataset: (id: string) => Promise<void>;
   loadSample: (index?: number) => Promise<void>;
   removeDataset: (id: string) => Promise<void>;
   createDerivedDataset: (name: string, sql: string) => Promise<Dataset>;
@@ -90,6 +93,56 @@ export const useAppStore = create<AppState>()(
       set((s) => {
         s.datasets.push(dataset);
         s.activeDatasetId = dataset.id;
+      });
+      eventBus.emit('dataset:added', { dataset });
+    },
+
+    importFromUrl: async (url, name) => {
+      const source = getDataSource();
+      const file = await fetchUrlAsFile(url);
+      const dataset = await source.importFile(file, name ? { name } : undefined);
+      dataset.sourceUrl = url;
+      const bytes = await file.arrayBuffer();
+      await saveDataset({
+        id: dataset.id,
+        name: dataset.name,
+        fileName: file.name,
+        bytes,
+        sourceUrl: url,
+        loadedAt: dataset.loadedAt,
+      });
+      set((s) => {
+        s.datasets.push(dataset);
+        s.activeDatasetId = dataset.id;
+      });
+      eventBus.emit('dataset:added', { dataset });
+    },
+
+    refreshDataset: async (id) => {
+      const existing = get().datasets.find((d) => d.id === id);
+      const url = existing?.sourceUrl;
+      if (!existing || !url)
+        throw new Error('This dataset has no source URL to refresh from.');
+      const source = getDataSource();
+      const file = await fetchUrlAsFile(url);
+      // Re-import under the SAME id so field ids / tile references stay stable.
+      const dataset = await source.importFile(file, {
+        name: existing.name,
+        datasetId: id,
+      });
+      dataset.sourceUrl = url;
+      const bytes = await file.arrayBuffer();
+      await saveDataset({
+        id,
+        name: dataset.name,
+        fileName: file.name,
+        bytes,
+        sourceUrl: url,
+        loadedAt: dataset.loadedAt,
+      });
+      set((s) => {
+        const i = s.datasets.findIndex((d) => d.id === id);
+        if (i >= 0) s.datasets[i] = dataset;
       });
       eventBus.emit('dataset:added', { dataset });
     },
@@ -169,6 +222,7 @@ async function restoreSession(): Promise<void> {
         name: sd.name,
         datasetId: sd.id,
       });
+      if (sd.sourceUrl) dataset.sourceUrl = sd.sourceUrl;
       restored.push(dataset);
     } catch {
       // Skip datasets that fail to rebuild (e.g. unsupported/corrupt bytes).

@@ -3,7 +3,7 @@
  * only visible rows are rendered. Used for the M0 raw-rows view and later for
  * the Table chart type and "view underlying rows".
  */
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, type CSSProperties } from 'react';
 import {
   flexRender,
   getCoreRowModel,
@@ -15,6 +15,10 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 export interface DataTableProps {
   columns: string[];
   rows: Record<string, unknown>[];
+  /** Optional per-cell styling (e.g. conditional formatting on measure cells). */
+  cellStyle?: (column: string, value: unknown, row: Record<string, unknown>) => CSSProperties | undefined;
+  /** Optional per-cell text override (e.g. number-format presets on measures). */
+  cellFormat?: (column: string, value: unknown) => string | undefined;
 }
 
 function formatCell(v: unknown): string {
@@ -26,16 +30,17 @@ function formatCell(v: unknown): string {
   return String(v);
 }
 
-export function DataTable({ columns, rows }: DataTableProps) {
+export function DataTable({ columns, rows, cellStyle, cellFormat }: DataTableProps) {
   const columnDefs = useMemo<ColumnDef<Record<string, unknown>>[]>(
     () =>
       columns.map((col) => ({
         id: col,
         accessorFn: (row) => row[col],
         header: col,
-        cell: (info) => formatCell(info.getValue()),
+        cell: (info) =>
+          cellFormat?.(col, info.getValue()) ?? formatCell(info.getValue()),
       })),
-    [columns],
+    [columns, cellFormat],
   );
 
   const table = useReactTable({
@@ -97,14 +102,19 @@ export function DataTable({ columns, rows }: DataTableProps) {
                 key={row.id}
                 className="border-b border-border-subtle hover:bg-bg-elevated/60"
               >
-                {row.getVisibleCells().map((cell) => (
-                  <td
-                    key={cell.id}
-                    className="whitespace-nowrap px-3 py-1.5 text-content-primary"
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
+                {row.getVisibleCells().map((cell) => {
+                  const colId = cell.column.id;
+                  const style = cellStyle?.(colId, cell.getValue(), row.original);
+                  return (
+                    <td
+                      key={cell.id}
+                      style={style}
+                      className="whitespace-nowrap px-3 py-1.5 text-content-primary"
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  );
+                })}
               </tr>
             );
           })}

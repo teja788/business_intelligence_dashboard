@@ -9,12 +9,18 @@ import { useEffectiveDataset } from '@/ui/hooks/useEffectiveDataset';
 import type { ChartTile, Dataset, Encoding } from '@/model/types';
 import { Select } from '@/ui/components/Select';
 import { listCharts, suggestCharts } from '@/charts/registry';
+import type { RefLineKind, RefLineOption } from '@/charts/echarts/refline';
+import type { FormatColor, FormatOp, FormatRule } from '@/charts/format';
+import type { ValueFormatOpts, ValueFormatStyle } from '@/charts/valueFormat';
 
 function fieldOptions(dataset: Dataset, role: 'dimension' | 'measure') {
   return dataset.fields
     .filter((f) => f.role === role)
     .map((f) => ({ value: f.id, label: f.name }));
 }
+
+/** Chart types where a click maps to a category and drill-down makes sense. */
+const DRILLABLE = new Set(['bar', 'line', 'area', 'combo']);
 
 export function TileEditor({ tile }: { tile: ChartTile }) {
   const dataset = useEffectiveDataset(tile.query.datasetId);
@@ -23,6 +29,36 @@ export function TileEditor({ tile }: { tile: ChartTile }) {
   const updateTileOptions = useDashboardStore((s) => s.updateTileOptions);
 
   if (!dataset) return <p className="px-1 text-[12px] text-content-muted">Dataset unavailable.</p>;
+
+  if (tile.type === 'control') {
+    return (
+      <div className="space-y-4">
+        <div>
+          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-content-muted">
+            Title
+          </label>
+          <input
+            value={tile.title ?? ''}
+            placeholder="Filter title"
+            onChange={(e) => updateTile(tile.id, { title: e.target.value })}
+            className="w-full rounded-md border border-border-subtle bg-bg-inset px-2 py-1.5 text-[13px] text-content-primary outline-none focus:border-accent"
+          />
+        </div>
+        <Select
+          label="Filter field"
+          value={(tile.options.controlField as string) ?? ''}
+          onChange={(v) => updateTileOptions(tile.id, { controlField: v || undefined })}
+          options={fieldOptions(dataset, 'dimension')}
+          allowEmpty
+          placeholder="Pick a dimension…"
+        />
+        <p className="text-[11px] leading-relaxed text-content-muted">
+          Selecting values here filters every tile on the dashboard, using the
+          same associative selection as click-to-filter.
+        </p>
+      </div>
+    );
+  }
 
   const enc = tile.encoding;
   const setEnc = (patch: Partial<Encoding>) =>
@@ -113,6 +149,20 @@ export function TileEditor({ tile }: { tile: ChartTile }) {
         )}
 
         {xField && <BinControl tile={tile} field={xField} />}
+
+        {DRILLABLE.has(tile.type) && (
+          <MeasureShelf
+            label="Drill-down (click a bar to descend)"
+            addLabel="+ Add level…"
+            values={(tile.options.drillFields as string[]) ?? []}
+            options={dims}
+            onChange={(drillFields) =>
+              updateTileOptions(tile.id, {
+                drillFields: drillFields.length ? drillFields : undefined,
+              })
+            }
+          />
+        )}
       </div>
 
       <ChartOptions tile={tile} onChange={(o) => updateTileOptions(tile.id, o)} advanced={mode === 'advanced'} />
@@ -176,11 +226,13 @@ function MeasureShelf({
   values,
   options,
   onChange,
+  addLabel = '+ Add measure…',
 }: {
   label: string;
   values: string[];
   options: { value: string; label: string }[];
   onChange: (values: string[]) => void;
+  addLabel?: string;
 }) {
   const available = options.filter((o) => !values.includes(o.value));
   return (
@@ -213,7 +265,7 @@ function MeasureShelf({
           onChange={(e) => e.target.value && onChange([...values, e.target.value])}
           className="mt-1 w-full rounded-md border border-border-subtle bg-bg-inset px-2 py-1.5 text-[13px] text-content-secondary outline-none focus:border-accent"
         >
-          <option value="">+ Add measure…</option>
+          <option value="">{addLabel}</option>
           {available.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
@@ -276,6 +328,7 @@ function ChartOptions({
             <Toggle label="100% stacked" checked={bool('percent')} onChange={(v) => onChange({ percent: v })} />
           )}
           <Toggle label="Horizontal" checked={bool('horizontal')} onChange={(v) => onChange({ horizontal: v })} />
+          <RefLineControl tile={tile} onChange={onChange} />
         </>,
       );
     case 'line':
@@ -284,18 +337,237 @@ function ChartOptions({
         <>
           <Toggle label="Smooth" checked={o.smooth !== false} onChange={(v) => onChange({ smooth: v })} />
           <Toggle label="Stacked" checked={bool('stacked')} onChange={(v) => onChange({ stacked: v })} />
+          <RefLineControl tile={tile} onChange={onChange} />
         </>,
       );
     case 'kpi':
       return section(
-        <div className="grid grid-cols-2 gap-2">
-          <TextOpt label="Prefix" value={(o.prefix as string) ?? ''} onChange={(v) => onChange({ prefix: v })} />
-          <TextOpt label="Suffix" value={(o.suffix as string) ?? ''} onChange={(v) => onChange({ suffix: v })} />
-        </div>,
+        <>
+          <ValueFormatControl tile={tile} onChange={onChange} />
+          <div className="grid grid-cols-2 gap-2">
+            <TextOpt label="Prefix" value={(o.prefix as string) ?? ''} onChange={(v) => onChange({ prefix: v })} />
+            <TextOpt label="Suffix" value={(o.suffix as string) ?? ''} onChange={(v) => onChange({ suffix: v })} />
+          </div>
+          <ConditionalFormatEditor tile={tile} onChange={onChange} />
+        </>,
+      );
+    case 'table':
+      return section(
+        <>
+          <ValueFormatControl tile={tile} onChange={onChange} />
+          <ConditionalFormatEditor tile={tile} onChange={onChange} />
+        </>,
       );
     default:
       return null;
   }
+}
+
+const VALUE_FORMAT_STYLES: { value: ValueFormatStyle; label: string }[] = [
+  { value: 'number', label: 'Number' },
+  { value: 'currency', label: 'Currency' },
+  { value: 'percent', label: 'Percent' },
+  { value: 'compact', label: 'Compact (1.2K)' },
+];
+
+function ValueFormatControl({
+  tile,
+  onChange,
+}: {
+  tile: ChartTile;
+  onChange: (o: Record<string, unknown>) => void;
+}) {
+  const fmt = (tile.options.valueFormat as ValueFormatOpts | undefined) ?? undefined;
+  const style = fmt?.style ?? '';
+
+  const set = (patch: Partial<ValueFormatOpts>) => {
+    const next = { ...(fmt ?? { style: 'number' as ValueFormatStyle }), ...patch };
+    onChange({ valueFormat: next.style ? next : undefined });
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <Select
+        label="Number format"
+        value={style}
+        allowEmpty
+        placeholder="Default"
+        options={VALUE_FORMAT_STYLES}
+        onChange={(v) =>
+          onChange({ valueFormat: v ? { ...(fmt ?? {}), style: v as ValueFormatStyle } : undefined })
+        }
+      />
+      {style && (
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="mb-1 block text-[10px] uppercase tracking-wide text-content-muted">
+              Decimals
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={6}
+              value={fmt?.decimals ?? ''}
+              placeholder="auto"
+              onChange={(e) =>
+                set({ decimals: e.target.value === '' ? undefined : Number(e.target.value) })
+              }
+              className="w-full rounded-md border border-border-subtle bg-bg-inset px-2 py-1 text-[13px] text-content-primary outline-none focus:border-accent"
+            />
+          </label>
+          {style === 'currency' && (
+            <TextOpt
+              label="Currency"
+              value={fmt?.currency ?? 'USD'}
+              onChange={(v) => set({ currency: v.toUpperCase() })}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const FORMAT_OPS: { value: FormatOp; label: string }[] = [
+  { value: 'gt', label: '>' },
+  { value: 'gte', label: '≥' },
+  { value: 'lt', label: '<' },
+  { value: 'lte', label: '≤' },
+  { value: 'eq', label: '=' },
+  { value: 'between', label: 'between' },
+];
+
+const FORMAT_COLORS: FormatColor[] = ['green', 'red', 'amber', 'blue', 'gray'];
+const COLOR_SWATCH: Record<FormatColor, string> = {
+  green: '#22c55e',
+  red: '#ef4444',
+  amber: '#f59e0b',
+  blue: '#3b82f6',
+  gray: '#94a3b8',
+};
+
+function ConditionalFormatEditor({
+  tile,
+  onChange,
+}: {
+  tile: ChartTile;
+  onChange: (o: Record<string, unknown>) => void;
+}) {
+  const rules = (Array.isArray(tile.options.format) ? tile.options.format : []) as FormatRule[];
+
+  const commit = (next: FormatRule[]) =>
+    onChange({ format: next.length ? next : undefined });
+  const update = (i: number, patch: Partial<FormatRule>) =>
+    commit(rules.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const addRule = () =>
+    commit([...rules, { op: 'gt', value: 0, color: 'green' }]);
+
+  return (
+    <div className="space-y-1.5 pt-1">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">
+        Conditional formatting
+      </div>
+      {rules.map((r, i) => (
+        <div key={i} className="flex items-center gap-1">
+          <select
+            value={r.op}
+            onChange={(e) => update(i, { op: e.target.value as FormatOp })}
+            className="rounded-md border border-border-subtle bg-bg-inset px-1 py-1 text-[12px] text-content-primary outline-none focus:border-accent"
+          >
+            {FORMAT_OPS.map((op) => (
+              <option key={op.value} value={op.value}>{op.label}</option>
+            ))}
+          </select>
+          <input
+            type="number"
+            value={r.value}
+            onChange={(e) => update(i, { value: Number(e.target.value) })}
+            className="w-14 rounded-md border border-border-subtle bg-bg-inset px-1.5 py-1 text-[12px] text-content-primary outline-none focus:border-accent"
+          />
+          {r.op === 'between' && (
+            <input
+              type="number"
+              value={r.value2 ?? 0}
+              onChange={(e) => update(i, { value2: Number(e.target.value) })}
+              className="w-14 rounded-md border border-border-subtle bg-bg-inset px-1.5 py-1 text-[12px] text-content-primary outline-none focus:border-accent"
+            />
+          )}
+          <div className="ml-auto flex items-center gap-0.5">
+            {FORMAT_COLORS.map((c) => (
+              <button
+                key={c}
+                onClick={() => update(i, { color: c })}
+                title={c}
+                style={{ backgroundColor: COLOR_SWATCH[c] }}
+                className={`h-4 w-4 rounded-full ${r.color === c ? 'ring-2 ring-content-primary ring-offset-1 ring-offset-bg-panel' : ''}`}
+              />
+            ))}
+          </div>
+          <button
+            onClick={() => commit(rules.filter((_, idx) => idx !== i))}
+            className="px-1 text-[12px] text-content-muted hover:text-red-400"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      <button
+        onClick={addRule}
+        className="rounded px-1 text-[11px] text-accent hover:bg-bg-elevated"
+      >
+        + Add rule
+      </button>
+    </div>
+  );
+}
+
+const REF_LINE_OPTIONS: { value: RefLineKind; label: string }[] = [
+  { value: 'avg', label: 'Average' },
+  { value: 'median', label: 'Median' },
+  { value: 'min', label: 'Minimum' },
+  { value: 'max', label: 'Maximum' },
+  { value: 'value', label: 'Fixed value…' },
+];
+
+function RefLineControl({
+  tile,
+  onChange,
+}: {
+  tile: ChartTile;
+  onChange: (o: Record<string, unknown>) => void;
+}) {
+  const ref = tile.options.refLine as RefLineOption | undefined;
+  const kind = ref?.kind ?? '';
+
+  const setKind = (k: string) => {
+    if (!k) return onChange({ refLine: undefined });
+    if (k === 'value')
+      return onChange({ refLine: { kind: 'value', value: ref?.value ?? 0 } });
+    onChange({ refLine: { kind: k as RefLineKind } });
+  };
+
+  return (
+    <div className="space-y-1.5 pt-1">
+      <Select
+        label="Reference line"
+        value={kind}
+        allowEmpty
+        placeholder="None"
+        options={REF_LINE_OPTIONS}
+        onChange={setKind}
+      />
+      {kind === 'value' && (
+        <input
+          type="number"
+          value={ref?.value ?? 0}
+          onChange={(e) =>
+            onChange({ refLine: { kind: 'value', value: Number(e.target.value) } })
+          }
+          className="w-full rounded-md border border-border-subtle bg-bg-inset px-2 py-1.5 text-[13px] text-content-primary outline-none focus:border-accent"
+        />
+      )}
+    </div>
+  );
 }
 
 function TextOpt({

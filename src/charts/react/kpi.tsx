@@ -2,14 +2,19 @@
 import { createElement } from 'react';
 import { makeReactRenderer, type ReactChartProps } from './reactRenderer';
 import { KpiIcon } from '../icons';
+import { colorStyle, evalFormatColor, parseFormatRules } from '../format';
+import { formatValue, parseValueFormat } from '../valueFormat';
 
 function fmt(v: number, opts: Record<string, unknown>): string {
-  const decimals = typeof opts.decimals === 'number' ? opts.decimals : undefined;
   const prefix = typeof opts.prefix === 'string' ? opts.prefix : '';
   const suffix = typeof opts.suffix === 'string' ? opts.suffix : '';
-  const n = v.toLocaleString(undefined, {
-    maximumFractionDigits: decimals ?? (Math.abs(v) >= 1000 ? 0 : 2),
-  });
+  const preset = parseValueFormat(opts);
+  const decimals = typeof opts.decimals === 'number' ? opts.decimals : undefined;
+  const n = preset
+    ? formatValue(v, preset)
+    : v.toLocaleString(undefined, {
+        maximumFractionDigits: decimals ?? (Math.abs(v) >= 1000 ? 0 : 2),
+      });
   return `${prefix}${n}${suffix}`;
 }
 
@@ -19,14 +24,25 @@ function KpiCard({ data, options }: ReactChartProps) {
     ? Number((data.rows[0]?.[measure.key] as number) ?? 0)
     : 0;
 
+  const color = measure ? evalFormatColor(parseFormatRules(options), value) : null;
+
   return (
     <div className="flex h-full w-full flex-col items-center justify-center text-center">
       <div className="text-[11px] font-medium uppercase tracking-wider text-content-muted">
         {(options.label as string) || measure?.label || 'Metric'}
       </div>
-      <div className="mt-1 bg-gradient-to-br from-content-primary to-content-secondary bg-clip-text text-4xl font-semibold tabular-nums text-transparent">
-        {measure ? fmt(value, options) : '—'}
-      </div>
+      {color ? (
+        <div
+          className="mt-1 rounded-lg px-3 py-1 text-4xl font-semibold tabular-nums"
+          style={colorStyle(color)}
+        >
+          {fmt(value, options)}
+        </div>
+      ) : (
+        <div className="mt-1 bg-gradient-to-br from-content-primary to-content-secondary bg-clip-text text-4xl font-semibold tabular-nums text-transparent">
+          {measure ? fmt(value, options) : '—'}
+        </div>
+      )}
       {typeof options.target === 'number' && measure && (
         <div className="mt-2 text-xs text-content-muted">
           {value >= (options.target as number) ? '▲' : '▼'} target{' '}

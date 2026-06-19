@@ -61,6 +61,8 @@ export interface Dataset {
   fields: Field[];
   rowCount: number;
   loadedAt: string; // ISO timestamp — drives the "data freshness" badge
+  /** Origin URL when imported from a link — enables one-click refresh. */
+  sourceUrl?: string;
 }
 
 /* ----------------------------- Query model ------------------------------ */

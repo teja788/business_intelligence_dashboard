@@ -18,6 +18,8 @@ export interface StoredDataset {
   bytes?: ArrayBuffer;
   /** SQL to rebuild a derived dataset (joins/unions/SQL Lab). */
   derivedSql?: string;
+  /** Origin URL for link-imported datasets (enables refresh + re-fetch). */
+  sourceUrl?: string;
   loadedAt: string;
 }
 

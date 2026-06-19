@@ -5,9 +5,11 @@
 import { useState } from 'react';
 import { useAppStore } from '@/store/appStore';
 import { SparkIcon, UploadIcon } from './components/icons';
+import { UrlImport } from './components/UrlImport';
 
 export function EmptyState() {
   const importFile = useAppStore((s) => s.importFile);
+  const importFromUrl = useAppStore((s) => s.importFromUrl);
   const loadSample = useAppStore((s) => s.loadSample);
   const engineStatus = useAppStore((s) => s.engineStatus);
   const [dragOver, setDragOver] = useState(false);
@@ -75,6 +77,8 @@ export function EmptyState() {
               onChange={(e) => void handleFiles(e.target.files)}
             />
           </label>
+
+          <UrlImport onImport={(url) => importFromUrl(url)} disabled={disabled} />
 
           <button
             onClick={() => {

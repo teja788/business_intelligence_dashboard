@@ -77,3 +77,23 @@ export const ToggleIcon = (p: IconProps) => (
     <circle cx="8" cy="12" r="3" />
   </svg>
 );
+
+export const LinkIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5" />
+    <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5" />
+  </svg>
+);
+
+export const RefreshIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M21 12a9 9 0 1 1-3-6.7L21 8" />
+    <path d="M21 3v5h-5" />
+  </svg>
+);
+
+export const FilterIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M3 4h18l-7 8v7l-4-2v-5z" />
+  </svg>
+);

@@ -1,9 +1,13 @@
 import { useEffect } from 'react';
 import { useAppStore } from '@/store/appStore';
 import { AppShell } from '@/ui/AppShell';
+import { EmbedView } from '@/ui/EmbedView';
+import { isEmbedMode } from '@/ui/embed';
 import { registerBuiltinCharts } from '@/charts/builtins';
 
 registerBuiltinCharts();
+
+const EMBED = isEmbedMode();
 
 export default function App() {
   const initEngine = useAppStore((s) => s.initEngine);
@@ -28,6 +32,17 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  if (EMBED) {
+    if (engineStatus !== 'ready') {
+      return (
+        <div className="grid h-full place-items-center text-sm text-content-muted">
+          Loading dashboard…
+        </div>
+      );
+    }
+    return <EmbedView />;
   }
 
   return <AppShell />;

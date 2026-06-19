@@ -10,6 +10,7 @@ import {
   valueAxis,
 } from './theme';
 import { mountECharts } from './mount';
+import { buildMarkLine, parseRefLine } from './refline';
 
 function makeLineChart(area: boolean): ChartRenderer {
   return {
@@ -34,12 +35,17 @@ function makeLineChart(area: boolean): ChartRenderer {
       const stacked = !!options.stacked;
       const smooth = options.smooth !== false;
 
+      const refOpt = parseRefLine(options);
+      const markLine = refOpt
+        ? buildMarkLine(refOpt, series.flatMap((s) => s.data))
+        : null;
+
       const option = {
         ...baseCartesianOption(theme),
         color: theme.palette,
         xAxis: { ...categoryAxis(theme, data.x?.label, categories), boundaryGap: false },
         yAxis: valueAxis(theme),
-        series: series.map((s) => ({
+        series: series.map((s, i) => ({
           type: 'line',
           name: s.name,
           data: s.data,
@@ -50,6 +56,7 @@ function makeLineChart(area: boolean): ChartRenderer {
           areaStyle: area ? { opacity: stacked ? 0.6 : 0.18 } : undefined,
           emphasis: { focus: 'series' },
           connectNulls: true,
+          ...(i === 0 && markLine ? { markLine } : {}),
         })),
       };
 

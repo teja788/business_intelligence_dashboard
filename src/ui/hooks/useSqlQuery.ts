@@ -6,6 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { getDataSource } from '@/engine/source';
+import { getCachedQuery, setCachedQuery } from '@/engine/queryCache';
 
 export interface SqlResult {
   columns: string[];
@@ -30,7 +31,11 @@ export function useSqlQuery(sql: string | null): QueryState {
     setState({ loading: true });
     (async () => {
       try {
-        const table = await getDataSource().runSQL(sql);
+        let table = getCachedQuery(sql);
+        if (!table) {
+          table = await getDataSource().runSQL(sql);
+          setCachedQuery(sql, table);
+        }
         const columns = table.schema.fields.map((f) => f.name);
         const rows = table.toArray().map((r) => {
           const obj: Record<string, unknown> = {};

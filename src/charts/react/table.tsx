@@ -3,8 +3,10 @@ import { createElement, useMemo } from 'react';
 import { makeReactRenderer, type ReactChartProps } from './reactRenderer';
 import { TableChartIcon } from '../icons';
 import { DataTable } from '@/ui/table/DataTable';
+import { colorStyle, evalFormatColor, parseFormatRules } from '../format';
+import { formatValue, parseValueFormat } from '../valueFormat';
 
-function TableChartView({ data }: ReactChartProps) {
+function TableChartView({ data, options }: ReactChartProps) {
   const columns = useMemo(() => {
     const cols: string[] = [];
     if (data.x) cols.push(data.x.key);
@@ -15,7 +17,39 @@ function TableChartView({ data }: ReactChartProps) {
     return cols;
   }, [data]);
 
-  return <DataTable columns={columns} rows={data.rows} />;
+  // Conditional formatting applies only to measure cells (numeric values).
+  const rules = useMemo(() => parseFormatRules(options), [options]);
+  const measureKeys = useMemo(
+    () => new Set(data.measures.map((m) => m.key)),
+    [data.measures],
+  );
+  const cellStyle = useMemo(() => {
+    if (!rules.length) return undefined;
+    return (column: string, value: unknown) => {
+      if (!measureKeys.has(column)) return undefined;
+      const color = evalFormatColor(rules, value);
+      return color ? colorStyle(color) : undefined;
+    };
+  }, [rules, measureKeys]);
+
+  // Number-format preset applies to measure cells only.
+  const preset = useMemo(() => parseValueFormat(options), [options]);
+  const cellFormat = useMemo(() => {
+    if (!preset) return undefined;
+    return (column: string, value: unknown) =>
+      measureKeys.has(column) && typeof value === 'number'
+        ? formatValue(value, preset)
+        : undefined;
+  }, [preset, measureKeys]);
+
+  return (
+    <DataTable
+      columns={columns}
+      rows={data.rows}
+      cellStyle={cellStyle}
+      cellFormat={cellFormat}
+    />
+  );
 }
 
 export const tableChart = makeReactRenderer({

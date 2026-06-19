@@ -13,10 +13,12 @@ import {
   CalendarIcon,
   DatabaseIcon,
   HashIcon,
+  RefreshIcon,
   TextIcon,
   ToggleIcon,
   UploadIcon,
 } from './components/icons';
+import { UrlImport } from './components/UrlImport';
 
 function typeIcon(type: FieldType) {
   switch (type) {
@@ -85,6 +87,9 @@ export function LeftRail() {
   const activeId = useAppStore((s) => s.activeDatasetId);
   const setActive = useAppStore((s) => s.setActiveDataset);
   const importFile = useAppStore((s) => s.importFile);
+  const importFromUrl = useAppStore((s) => s.importFromUrl);
+  const refreshDataset = useAppStore((s) => s.refreshDataset);
+  const [refreshingId, setRefreshingId] = useState<string>();
   const active = useActiveDataset();
   const calcFields = useDashboardStore((s) => s.workbook.calculatedFields) ?? [];
   const removeCalculatedField = useDashboardStore((s) => s.removeCalculatedField);
@@ -102,22 +107,36 @@ export function LeftRail() {
     e.target.value = '';
   };
 
+  const onRefresh = async (id: string) => {
+    setRefreshingId(id);
+    try {
+      await refreshDataset(id);
+    } catch {
+      /* surfaced elsewhere; keep the rail resilient */
+    } finally {
+      setRefreshingId(undefined);
+    }
+  };
+
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-border-subtle bg-bg-panel">
       <div className="flex items-center justify-between px-3 py-2">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">
           Data
         </span>
-        <label className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-content-secondary hover:bg-bg-elevated hover:text-content-primary">
-          <UploadIcon className="h-3.5 w-3.5" />
-          Import
-          <input
-            type="file"
-            accept=".csv,.tsv,.txt,.parquet,.json,.ndjson,.xlsx,.xls"
-            className="hidden"
-            onChange={onPick}
-          />
-        </label>
+        <div className="flex items-center gap-0.5">
+          <UrlImport variant="subtle" onImport={(url) => importFromUrl(url)} />
+          <label className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-content-secondary hover:bg-bg-elevated hover:text-content-primary">
+            <UploadIcon className="h-3.5 w-3.5" />
+            Import
+            <input
+              type="file"
+              accept=".csv,.tsv,.txt,.parquet,.json,.ndjson,.xlsx,.xls"
+              className="hidden"
+              onChange={onPick}
+            />
+          </label>
+        </div>
       </div>
 
       <div className="v-scroll flex-1 overflow-auto px-2 pb-3">
@@ -128,21 +147,39 @@ export function LeftRail() {
         )}
 
         {datasets.map((ds) => (
-          <button
+          <div
             key={ds.id}
             onClick={() => setActive(ds.id)}
-            className={`mb-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] ${
+            title={ds.sourceUrl ? `Source: ${ds.sourceUrl}` : ds.name}
+            className={`group mb-1 flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] ${
               ds.id === activeId
                 ? 'bg-accent/15 text-content-primary'
                 : 'text-content-secondary hover:bg-bg-elevated'
             }`}
           >
-            <DatabaseIcon className="h-3.5 w-3.5 text-accent" />
+            <DatabaseIcon className="h-3.5 w-3.5 shrink-0 text-accent" />
             <span className="truncate">{ds.name}</span>
-            <span className="ml-auto text-[10px] text-content-muted">
+            {ds.sourceUrl && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void onRefresh(ds.id);
+                }}
+                disabled={refreshingId === ds.id}
+                title="Refresh from source URL"
+                className="ml-auto text-content-muted opacity-0 hover:text-accent group-hover:opacity-100 disabled:opacity-100"
+              >
+                <RefreshIcon
+                  className={`h-3.5 w-3.5 ${refreshingId === ds.id ? 'animate-spin' : ''}`}
+                />
+              </button>
+            )}
+            <span
+              className={`text-[10px] text-content-muted ${ds.sourceUrl ? '' : 'ml-auto'}`}
+            >
               {ds.rowCount.toLocaleString()}
             </span>
-          </button>
+          </div>
         ))}
 
         {active && (

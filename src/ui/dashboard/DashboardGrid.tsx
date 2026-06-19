@@ -10,7 +10,7 @@ import { Tile } from './Tile';
 const ResponsiveGridLayout = WidthProvider(Responsive);
 const COLS = 12;
 
-export function DashboardGrid() {
+export function DashboardGrid({ readOnly = false }: { readOnly?: boolean } = {}) {
   const tiles = useDashboardStore((s) => s.workbook.tiles);
   const setLayouts = useDashboardStore((s) => s.setLayouts);
   const selectTile = useDashboardStore((s) => s.selectTile);
@@ -60,10 +60,12 @@ export function DashboardGrid() {
         draggableHandle=".tile-handle"
         onLayoutChange={handleChange}
         compactType="vertical"
+        isDraggable={!readOnly}
+        isResizable={!readOnly}
       >
         {tiles.map((t) => (
           <div key={t.id}>
-            <Tile tile={t} />
+            <Tile tile={t} readOnly={readOnly} />
           </div>
         ))}
       </ResponsiveGridLayout>
